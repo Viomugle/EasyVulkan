@@ -8,6 +8,8 @@
 #define GLFW_INCLUDE_VULKAN
 #include "GLFW/glfw3.h"
 #include <format>
+namespace vulkan
+{
 GLFWwindow* pWindow;
 GLFWmonitor*  pMonitor;
 const char * windowTitle = "Vulkan";
@@ -19,6 +21,20 @@ bool InitializedWindow(VkExtent2D size,bool fullScreen=false,bool isResizable=tr
     }
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, isResizable);
+    uint32_t extensionCount=0;
+    const char** extensionNames;
+    extensionNames= glfwGetRequiredInstanceExtensions(&extensionCount);
+    if(!extensionNames)
+    {
+        std::cout<<std::format("[ InitializeWindow ] ERROR\nFailed to get required instance extensions!\n");
+        glfwTerminate();
+        return false;
+    }
+    for(size_t i=0;i<extensionCount;i++)
+    {
+        graphicsBase::Base().AddInstanceExtension(extensionNames[i]);
+    }
+    graphicsBase::Base().AddDeviceExtension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     pMonitor = glfwGetPrimaryMonitor();
     const GLFWvidmode* pMode = glfwGetVideoMode(pMonitor);
     pWindow = fullScreen ?
@@ -54,6 +70,7 @@ void TitleFps()
         time0 = time1;
         dframe = 0;
     }
+}
 }
 
 
