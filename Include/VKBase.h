@@ -68,21 +68,62 @@ namespace vulkan
                     .apiVersion=apiVersion
             };
             VkInstanceCreateInfo instanceCreateInfo={
-                    .sType=VK_STRUTURE_TYPE_INSTANCE_CREATE_INFO,
+                    .sType=VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
                     .flags=flags,
                     .pApplicationInfo=&applicatianInfo,
                     .enabledLayerCount=uint32_t(instanceLayers.size()),
-                    .ppEnableLayerNames=instanceLayers.data(),
-                    .enabledExtensionCount=uint32_t(instaceExtensions.size()),
-                    .ppEnableExtensionNames=instanceExtensions.data()
+                    .ppEnabledLayerNames=instanceLayers.data(),
+                    .enabledExtensionCount=uint32_t(instanceExtensions.size()),
+                    .ppEnabledExtensionNames=instanceExtensions.data()
             };
 
-            if(VkResult result=vkR)
+            if(VkResult result=vkCreateInstance(&instanceCreateInfo,nullptr,&instance))
+            {
+                std::cout<<std::format("[ graphicsBase ] ERROR\n Failed to create a vulkan instance!\n Error code:{}\n",int32_t(result));
+                return result;
+            }
 
+            std::cout<<std::format(
+                    "Vulkan API Version: {}.{}.{}\n",
+                    VK_VERSION_MAJOR(apiVersion),
+                    VK_VERSION_MINOR(apiVersion),
+                    VK_VERSION_PATCH(apiVersion)
+                    );
+#ifndef NDEBUG
+            CreateDebugMessenger();
+#endif
+            return VK_SUCCESS;
         }
         VkResult CheckInstanceLayers(std::span<const char*> layersToCheck)
         {
-            //TODO
+            uint32_t layerCount;
+            std::vector<VkLayerProperties >availableLayers;
+            if(VkResult result= vkEnumerateInstanceLayerProperties(&layerCount, nullptr))
+            {
+                std::cout<<std::format("[ graphicsBase ] ERROR\n Failed to enumerate instance layers!\n Error code:{}\n",int32_t(result));
+                return result;
+            }
+            if (layerCount) {
+                availableLayers.resize(layerCount);
+                if (VkResult result = vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data())) {
+                    std::cout << std::format("[ graphicsBase ] ERROR\nFailed to enumerate instance layer properties!\nError code: {}\n", int32_t(result));
+                    return result;
+                }
+                for (auto& i : layersToCheck) {
+                    bool found = false;
+                    for (auto& j : availableLayers)
+                        if (!strcmp(i, j.layerName)) {
+                            found = true;
+                            break;
+                        }
+                    if (!found)
+                        i = nullptr;
+                }
+            }
+            else
+                for (auto& i : layersToCheck)
+                    i = nullptr;
+            return VK_SUCCESS;
         }
         void InstanceLayers(const std::vector<const char*>& layerNames)
         {
@@ -90,7 +131,45 @@ namespace vulkan
         }
         VkResult CheckInstanceExtensions(std::span<const char*> extensionsToCheck,const char* layerName=nullptr)const
         {
-            //TODO
+            uint32_t extensionCount;
+            std::vector<VkExtensionProperties> availableExtensions;
+            if(VkResult result=vkEnumerateInstanceExtensionProperties(layerNmae,&extensionCount,nullptr))
+            {
+                layerName?std::format("[ graphicsBase ] ERROR\n Failed to enumerate instance extensions for layer {}!\n Error code:{}\n",layerName,int32_t(result)):
+                std::format("[ graphicsBase ] ERROR\n Failed to enumerate instance extensions!\n Error code:{}\n",int32_t(result));
+                return result;
+            }
+            if(extensionCount)
+            {
+                availableExtensions.resize(extensionCount);
+                if(VkResult result = vkEnumerateInstanceExtensionProperties(layerName, &extensionCount, availableExtensions.data()))
+                {
+                    std::cout<<std::format("[ graphicsBase ] ERROR\n Failed to enumerate instance extension properties for layer {}!\n Error code:{}\n",layerName,int32_t(result));
+                    return result;
+                }
+                for(auto& i:extensionsToCheck)
+                {
+                    bool found=false;
+                    for(auto& j:availableExtensions)
+                    {
+                        if(!strcmp(i,j.extensionName))
+                        {
+                            found=true;
+                            break;
+                        }
+                        if(!found)
+                        {
+                            i=nullptr;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                for(auto& i:extensionsToCheck)
+                    i=nullptr;
+            }
+            return VK_SUCCESS;
         }
         void InstanceExtensions(const std::vector<const char*> extensionNames)
         {
@@ -100,10 +179,40 @@ namespace vulkan
 
     private:
         VkDebugUtilsMessengerEXT debugMessenger;
-        VkResult CreateDebugMessenger()
-        {
-            //TODO
+
+        VkResult CreateDebugMessenger() {
+            static PFN_vkDebugUtilsMessengerCallbackEXT DebugUtilsMessengerCallback = [](
+                    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+                    VkDebugUtilsMessageTypeFlagsEXT messageTypes,
+                    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+                    void* pUserData)->VkBool32 {
+                std::cout << std::format("{}\n\n", pCallbackData->pMessage);
+                return VK_FALSE;
+            };
+            VkDebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo = {
+                    .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+                    .messageSeverity =
+                    VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+                    VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+                    .messageType =
+                    VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+                    VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                    VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+                    .pfnUserCallback = DebugUtilsMessengerCallback
+            };
+            PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessenger =
+                    reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
+            if (vkCreateDebugUtilsMessenger) {
+                VkResult result = vkCreateDebugUtilsMessenger(instance, &debugUtilsMessengerCreateInfo, nullptr, &debugMessenger);
+                if (result)
+                    std::cout << std::format("[ graphicsBase ] ERROR\nFailed to create a debug messenger!\nError code: {}\n", int32_t(result));
+                return result;
+            }
+            std::cout << std::format("[ graphicsBase ] ERROR\nFailed to get the function pointer of vkCreateDebugUtilsMessengerEXT!\n");
+            return VK_RESULT_MAX_ENUM;
         }
+
+
 
     private:
         VkSurfaceKHR surface;
@@ -134,9 +243,53 @@ namespace vulkan
         VkQueue queue_compute;
 
         std::vector<const char*> deviceExtensions;
-        VkResult GetQueueFamilyIndices(VkPhysicalDevice physicalDevice,bool enableGraphicsQueue,bool enableComputeQueue,uint32_t (&ueueFamilyIndices)[3])
-        {
-            //TODO
+        VkResult GetQueueFamilyIndices(VkPhysicalDevice physicalDevice, bool enableGraphicsQueue, bool enableComputeQueue, uint32_t (&queueFamilyIndices)[3]) {
+            uint32_t queueFamilyCount = 0;
+            vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
+            if (!queueFamilyCount)
+                return VK_RESULT_MAX_ENUM;
+            std::vector<VkQueueFamilyProperties> queueFamilyPropertieses(queueFamilyCount);
+            vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilyPropertieses.data());
+            auto& [ig,ip,ic]=queueFamilyIndices;
+            ig=ip=ic=VK_QUEUE_FAMILY_IGNORED;
+            for(uint32_t i=0;i<queueFamilyCount;i++)
+            {
+                VkBool32 supportGraphics=enableGraphicsQueue &&queueFamilyPropertieses[i].queueFlags&VK_QUEUE_GRAPHICS_BIT,
+                supportPresentation=false,
+                supportCompute=enableComputeQueue&&queueFamilyPropertieses[i].queueFlags&VK_QUEUE_COMPUTE_BIT;
+                if(surface)
+                {
+                    if(VkResult result= vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice,i,surface,&supportPresentation))
+                    {
+                        std::cout<<std::format("[ graphicsBase ] ERROR\nFailed to determine if the queue family supports presentatio!\nError code: {}\n",int32_t(result));
+                        return result;
+                    }
+                }
+                if(supportGraphics&&supportCompute)
+                {
+                    if(supportPresentation)
+                    {
+                        ig=ip=ic=i;
+                        break;
+                    }
+                    if(ig!=ic||ig==VK_QUEUE_FAMILY_IGNORED)
+                        ig=ic=i;
+                    if(!surface)
+                        break;
+                }
+                if(supportGraphics&&ig==VK_QUEUE_FAMILY_IGNORED)
+                    ig=i;
+                if(supportPresentation&&ip==VK_QUEUE_FAMILY_IGNORED)
+                    ip=i;
+                if(supportCompute&&ic==VK_QUEUE_FAMILY_IGNORED)
+                    ic=i;
+            }
+            if(ig==VK_QUEUE_FAMILY_IGNORED&&enableGraphicsQueue||ip==VK_QUEUE_FAMILY_IGNORED&&surface||ic==VK_QUEUE_FAMILY_IGNORED&&enableComputeQueue)
+                return VK_RESULT_MAX_ENUM;
+            queueFamilyIndex_graphics=ig;
+            queueFamilyIndex_presentation=ip;
+            queueFamilyIndex_compute=ic;
+            return VK_SUCCESS;
         }
     public:
         VkPhysicalDevice PhysicalDevice()const{
@@ -195,10 +348,22 @@ namespace vulkan
             AddLayerOrExtension(deviceExtensions,extensionName);
         }
 
-        VkResult GetPhysicalDevice()
-        {
-            //TODO
+        VkResult GetPhysicalDevices() {
+            uint32_t deviceCount;
+            if (VkResult result = vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr)) {
+                std::cout << std::format("[ graphicsBase ] ERROR\nFailed to get the count of physical devices!\nError code: {}\n", int32_t(result));
+                return result;
+            }
+            if (!deviceCount)
+                std::cout << std::format("[ graphicsBase ] ERROR\nFailed to find any physical device supports vulkan!\n"),
+                        abort();
+            availablePhysicalDevices.resize(deviceCount);
+            VkResult result = vkEnumeratePhysicalDevices(instance, &deviceCount, availablePhysicalDevices.data());
+            if (result)
+                std::cout << std::format("[ graphicsBase ] ERROR\nFailed to enumerate physical devices!\nError code: {}\n", int32_t(result));
+            return result;
         }
+
         VkResult DeterminePhysicalDevice(uint32_t deviceIndex=0,bool enableGraphicsQueue,bool enableComputeQueue=true)
         {
             //TODO
