@@ -13,9 +13,8 @@ namespace vulkan
 GLFWwindow* pWindow;
 GLFWmonitor*  pMonitor;
 const char * windowTitle = "Vulkan";
-bool InitializedWindow(VkExtent2D size,bool fullScreen=false,bool isResizable=true,bool limitFrameRate=true)
+bool InitializeWindow(VkExtent2D size,bool fullScreen=false,bool isResizable=true,bool limitFrameRate=true)
 {
-       //using命名空间
     using namespace vulkan;
 
     if (!glfwInit()) {
@@ -53,7 +52,7 @@ bool InitializedWindow(VkExtent2D size,bool fullScreen=false,bool isResizable=tr
 #endif
     graphicsBase::Base().AddDeviceExtension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     //在创建window surface前创建Vulkan实例
-    graphicsBase::Base().UseLatestApiVersion()
+    graphicsBase::Base().UseLastestApiVersion();
     if (graphicsBase::Base().CreateInstance())
         return false;
 
@@ -74,14 +73,13 @@ bool InitializedWindow(VkExtent2D size,bool fullScreen=false,bool isResizable=tr
         //创建逻辑设备
         graphicsBase::Base().CreateDevice())
         return false;
-    //----------------------------------------
-
-    /*待Ch1-4填充*/
+    if(graphicsBase::Base().CreateSwapchain(limitFrameRate))
+        return false;
     return true;
 }
 void TerminateWindow()
 {
-    //TODO
+    graphicsBase::Base().WaitIdle();
     glfwTerminate();
 }
 void TitleFps()

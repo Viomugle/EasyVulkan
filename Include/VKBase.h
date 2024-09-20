@@ -5,6 +5,13 @@
 #ifndef VKBASE_H
 #define VKBASE_H
 
+
+#ifndef NDEBUG
+#define ENABLE_DEBUG_MESSENGER true
+#else
+#define ENABLE_DEBUG_MESSENGER false
+#endif
+
 #include "EasyVulkanStart.h"
 
 namespace vulkan
@@ -14,18 +21,105 @@ namespace vulkan
         static graphicsBase singleton;
         graphicsBase()=default;
         graphicsBase(const graphicsBase&&)=delete;
-        ~graphicsBase(){}
+        ~graphicsBase()
+        {
+            if(!instance)
+                return;
+            if(device)
+            {
+                WaitIdle();
+                if(swapchain)
+                {
+                    for(auto& i:callbacks_destroySwapchain)
+                        i();
+                    for(auto& i:swapchainImageViews)
+                    {
+                        if(i)
+                            vkDestroyImageView(device,i,nullptr);
+                        vkDestroySwapchainKHR(device,swapchain,nullptr);
+                    }
+                    for(auto& i:callbacks_destroyDevice)
+                        i();
+                    vkDestroyDevice(device,nullptr);
+                }
+                if(surface)
+                {
+                    vkDestroySurfaceKHR(instance,surface,nullptr);
+                }
+                if(debugMessenger)
+                {
+                    PFN_vkDestroyDebugReportCallbackEXT DestroyDebugUtilsMessenger=reinterpret_cast<PFN_vkDestroyDebugReportCallbackEXT>(vkGetInstanceProcAddr(instance,"vkDestroyDebugUtilsMessengerEXT"));
+                    if(DestroyDebugUtilsMessenger)
+                    {
+                        DestroyDebugUtilsMessenger(instance,debugMessenger,nullptr);
+                    }
+                }
+                vkDestroyInstance(instance,nullptr);
+            }
+        }
     public:
         static graphicsBase& Base()
         {
             return singleton;
         }
+
+        void Terminate()
+        {
+            this.~graphicsBase();
+            instance=VK_NULL_HANDLE;
+            physicalDevice=VK_NULL_HANDLE;
+            device=VK_NULL_HANDLE;
+            surface=VK_NULL_HANDLE;
+            swapchain=VK_NULL_HANDLE;
+            swapchainImages.resize(0);
+            swapchainImageViews.resize(0);
+            swapchainCreateInfo={};
+            debugMessenger=VK_NULL_HANDLE;
+
+        }
+
+        VkResult WaitIdle() const
+        {
+            VkResult result=vkDeviceWaitIdle(device);
+            if(result)
+                std::cout<<std::format("[ graphicsBase ] ERROR\nFailed to wait for device idle!\nError code: {}\n",int32_t(result));
+            return result;
+        }
+
     private:
         VkInstance instance;
         std::vector<const char*> instanceLayers;
         std::vector<const char*> instanceExtensions;
         std::vector<void(*)()> callbacks_createSwapchain;
-        std::vector<void(*)()> callbakcs_destorySwapchain;
+        std::vector<void(*)()> callbacks_destroySwapchain;
+        std::vector<void(*)()> callbacks_createDevice;
+        std::vector<void(*)()> callbacks_destroyDevice;
+
+
+
+
+        VkResult RecreateDevice(VkDeviceCreateFlags flags = 0) {
+            if (VkResult result = WaitIdle())
+                return result;
+            if(swapchain)
+            {
+                for(auto& i:callbacks_destroySwapchain)
+                    i();
+                for (auto& i : swapchainImageViews)
+                    if (i)
+                        vkDestroyImageView(device, i, nullptr);
+                swapchainImageViews.resize(0);
+                vkDestroySwapchainKHR(device,swapchain,nullptr);
+                swapchain=VK_NULL_HANDLE;
+                swapchainCreateInfo={};
+            }
+            for(auto &i:callbacks_destroyDevice)
+                i();
+            if(device)
+                vkDestroyDevice(device,nullptr);
+            device=VK_NULL_HANDLE;
+            return CreateDevice(flags);
+        }
 
         static void AddLayerOrExtension(std::vector<const char*>& container,const char* name)
         {
@@ -68,42 +162,33 @@ namespace vulkan
 
         VkResult CreateInstance(VkInstanceCreateFlags flags=0)
         {
-#ifndef NDEBUG
-
-            AddInstanceLayer("VK_LAYER_KHRONOS_validation");
+            if constexpr (ENABLE_DEBUG_MESSENGER)
+            AddInstanceLayer("VK_LAYER_KHRONOS_validation"),
             AddInstanceExtension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-
-#endif
-
-            VkApplicationInfo applicatianInfo={
-                    .sType=VK_STRUCTURE_TYPE_APPLICATION_INFO,
-                    .apiVersion=apiVersion
+            VkApplicationInfo applicatianInfo = {
+                .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+                .apiVersion = apiVersion
             };
-            VkInstanceCreateInfo instanceCreateInfo={
-                    .sType=VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-                    .flags=flags,
-                    .pApplicationInfo=&applicatianInfo,
-                    .enabledLayerCount=uint32_t(instanceLayers.size()),
-                    .ppEnabledLayerNames=instanceLayers.data(),
-                    .enabledExtensionCount=uint32_t(instanceExtensions.size()),
-                    .ppEnabledExtensionNames=instanceExtensions.data()
+            VkInstanceCreateInfo instanceCreateInfo = {
+                .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+                .flags = flags,
+                .pApplicationInfo = &applicatianInfo,
+                .enabledLayerCount = uint32_t(instanceLayers.size()),
+                .ppEnabledLayerNames = instanceLayers.data(),
+                .enabledExtensionCount = uint32_t(instanceExtensions.size()),
+                .ppEnabledExtensionNames = instanceExtensions.data()
             };
-
-            if(VkResult result=vkCreateInstance(&instanceCreateInfo,nullptr,&instance))
-            {
-                std::cout<<std::format("[ graphicsBase ] ERROR\n Failed to create a vulkan instance!\n Error code:{}\n",int32_t(result));
+            if (VkResult result = vkCreateInstance(&instanceCreateInfo, nullptr, &instance)) {
+                std::cout << std::format("[ graphicsBase ] ERROR\nFailed to create a vulkan instance!\nError code: {}\n", int32_t(result));
                 return result;
             }
-
-            std::cout<<std::format(
-                    "Vulkan API Version: {}.{}.{}\n",
-                    VK_VERSION_MAJOR(apiVersion),
-                    VK_VERSION_MINOR(apiVersion),
-                    VK_VERSION_PATCH(apiVersion)
-                    );
-#ifndef NDEBUG
-            CreateDebugMessenger();
-#endif
+            std::cout << std::format(
+                "Vulkan API Version: {}.{}.{}\n",
+                VK_VERSION_MAJOR(apiVersion),
+                VK_VERSION_MINOR(apiVersion),
+                VK_VERSION_PATCH(apiVersion));
+            if constexpr (ENABLE_DEBUG_MESSENGER)
+                CreateDebugMessenger();
             return VK_SUCCESS;
         }
         VkResult CheckInstanceLayers(std::span<const char*> layersToCheck)
@@ -613,7 +698,20 @@ namespace vulkan
                 if(VkResult result=GetSurfaceFormats())
                     return result;
             }
-            if()
+            if(swapchain)
+            {
+                for(auto& i:callbakcs_destorySwapchain)
+                    i();
+                for(auto& i:swapchainImageViews)
+                    if(i)
+                    {
+                        vkDestroyImageView(device,i,nullptr);
+                    }
+                swapchainImageViews.resize(0);
+                vkDestroySwapchainKHR(device,swapchain,nullptr);
+                swapchain=VK_NULL_HANDLE;
+                swapchainCreateInfo={};
+            }
 
         }
 
