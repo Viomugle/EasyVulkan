@@ -13,9 +13,14 @@
 #endif
 
 #include "EasyVulkanStart.h"
+#include "tools.hpp"
+
 
 namespace vulkan
 {
+
+
+
     constexpr VkExtent2D defaultWindowSize={1280,720};
     class graphicsBase{
         static graphicsBase singleton;
@@ -85,6 +90,8 @@ namespace vulkan
                 std::cout<<std::format("[ graphicsBase ] ERROR\nFailed to wait for device idle!\nError code: {}\n",int32_t(result));
             return result;
         }
+
+
 
     private:
         VkInstance instance;
@@ -160,37 +167,38 @@ namespace vulkan
             AddLayerOrExtension(instanceExtensions,extensionName);
         }
 
-        VkResult CreateInstance(VkInstanceCreateFlags flags=0)
-        {
+        result_t CreateInstance(VkInstanceCreateFlags flags = 0) {
             if constexpr (ENABLE_DEBUG_MESSENGER)
-            AddInstanceLayer("VK_LAYER_KHRONOS_validation"),
-            AddInstanceExtension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+                AddInstanceLayer("VK_LAYER_KHRONOS_validation"),
+                        AddInstanceExtension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
             VkApplicationInfo applicatianInfo = {
-                .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-                .apiVersion = apiVersion
+                    .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+                    .apiVersion = apiVersion
             };
             VkInstanceCreateInfo instanceCreateInfo = {
-                .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-                .flags = flags,
-                .pApplicationInfo = &applicatianInfo,
-                .enabledLayerCount = uint32_t(instanceLayers.size()),
-                .ppEnabledLayerNames = instanceLayers.data(),
-                .enabledExtensionCount = uint32_t(instanceExtensions.size()),
-                .ppEnabledExtensionNames = instanceExtensions.data()
+                    .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+                    .flags = flags,
+                    .pApplicationInfo = &applicatianInfo,
+                    .enabledLayerCount = uint32_t(instanceLayers.size()),
+                    .ppEnabledLayerNames = instanceLayers.data(),
+                    .enabledExtensionCount = uint32_t(instanceExtensions.size()),
+                    .ppEnabledExtensionNames = instanceExtensions.data()
             };
             if (VkResult result = vkCreateInstance(&instanceCreateInfo, nullptr, &instance)) {
                 std::cout << std::format("[ graphicsBase ] ERROR\nFailed to create a vulkan instance!\nError code: {}\n", int32_t(result));
                 return result;
             }
             std::cout << std::format(
-                "Vulkan API Version: {}.{}.{}\n",
-                VK_VERSION_MAJOR(apiVersion),
-                VK_VERSION_MINOR(apiVersion),
-                VK_VERSION_PATCH(apiVersion));
+                    "Vulkan API Version: {}.{}.{}\n",
+                    VK_VERSION_MAJOR(apiVersion),
+                    VK_VERSION_MINOR(apiVersion),
+                    VK_VERSION_PATCH(apiVersion));
             if constexpr (ENABLE_DEBUG_MESSENGER)
                 CreateDebugMessenger();
             return VK_SUCCESS;
         }
+
+
         VkResult CheckInstanceLayers(std::span<const char*> layersToCheck)
         {
             uint32_t layerCount;

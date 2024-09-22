@@ -9,6 +9,7 @@ add_executable(MyVulkan src/main.cpp
         src/stb_image.cpp
         Include/VKBase.h
         Include/EasyVulkanStart.h
-        Include/GlfwGeneral.hpp)
+        Include/GlfwGeneral.hpp
+        Include/tools.hpp)
 target_link_libraries(MyVulkan PUBLIC glfw3)
 target_link_libraries(MyVulkan PUBLIC vulkan-1)
