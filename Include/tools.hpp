@@ -15,6 +15,7 @@ namespace vulkan {
     using semaphore=VkSemaphore;
     using commandBuffer=VkCommandBuffer;
     using commandPool=VkCommandPool;
+    using renderPass=VkRenderPass;
 
     constexpr struct outStream_t {
         static std::stringstream ss;

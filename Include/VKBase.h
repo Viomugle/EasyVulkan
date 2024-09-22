@@ -14,6 +14,9 @@
 
 #include "EasyVulkanStart.h"
 #include "tools.hpp"
+#include <vulkan/vulkan.h>
+#include "vulkan/vulkan_core.h"
+
 
 
 namespace vulkan {
