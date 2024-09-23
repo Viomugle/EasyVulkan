@@ -11,11 +11,15 @@ namespace vulkan {
 #define DefineAddressFunction const decltype(handle)* Address() const { return &handle; }
 #define ExecuteOnce(...) { static bool executed = false; if (executed) return __VA_ARGS__; executed = true; }
     inline auto &outStream = std::cout;
-    using fence=VkFence;
+
     using semaphore=VkSemaphore;
     using commandBuffer=VkCommandBuffer;
     using commandPool=VkCommandPool;
     using renderPass=VkRenderPass;
+    using pipelineLayout=VkPipelineLayout;
+    using pipeline=VkPipeline;
+    using framebuffer=VkFramebuffer;
+    using shaderModule=VkShaderModule;
 
     constexpr struct outStream_t {
         static std::stringstream ss;

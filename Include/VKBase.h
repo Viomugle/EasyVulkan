@@ -18,11 +18,79 @@
 #include "vulkan/vulkan_core.h"
 
 
-
 namespace vulkan {
 
 
     constexpr VkExtent2D defaultWindowSize = {1280, 720};
+
+    class fence {
+        VkFence handle = VK_NULL_HANDLE;
+    public:
+        fence(VkFenceCreateInfo &createInfo) {
+            Creaate(createInfo);
+        }
+
+        fence(VkFenceCreateFlags flags = 0) {
+            Create(flags);
+        }
+
+        fence(fence &&other) noexcept {
+            MoveHandle;
+        }
+
+        ~fence() {
+            DestroyHandleBy(vkDestroyFence);
+        }
+
+        DefineHandleTypeOperator;
+
+        DefineAddressFunction;
+
+        result_t Wait() const {
+            VkResult result = vkWaitForFences(graphicsBase::Base().Device(), 1, &handle, true, UINT64_MAX);
+            if (result)
+                outStream << std::format("[ fence ] ERROR\nFailed to wait for the fence!\nError code: {}\n",
+                                         int32_t(result));
+            return result;
+        }
+
+        result_t Reset() const {
+            VkResult result = vkResetFences(graphicsBase::Base().Device(), 1, &handle);
+            if (result)
+                outStream << std::format("[ fence ] ERROR\nFailed to reset the fence!\nError code: {}\n",
+                                         int32_t(result));
+            return result;
+        }
+
+        result_t WaitAndReset() const {
+            VkResult result = Wait();
+            result || (result = Reset());
+            return result;
+        }
+
+        result_t WaitAndReset() const {
+            VkResult result = Wait();
+            result || (result = Reset());
+            return result;
+        }
+
+        result_t Status() const {
+            VkResult result = vkGetFenceStatus(graphicsBase::Base().Device(), handle);
+            if (result < 0)
+                outStream << std::format("[ fence ] ERROR\nFailed to get the status of the fence!\nError code: {}\n",
+                                         int32_t(result));
+            return result;
+        }
+
+        result_t Create(VkFenceCreateInfo& createInfo)
+        {
+            createInfo.sType=VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+
+        }
+
+
+    };
+
 
     class graphicsBase {
         static graphicsBase singleton;
@@ -196,50 +264,52 @@ namespace vulkan {
             return SubmitCommandBuffer_Graphics(submitInfo, fence);
         }
 
-        result_t SubmitCommandBuffer_Compute(VkSubmitInfo& submitInfo,VkFence fence=VK_NULL_HANDLE)const
-        {
-            submitInfo.sType=VK_STRUCTURE_TYPE_SUBMIT_INFO;
-            VkResult result=vkQueueSubmit(queue_compute,1,&submitInfo,fence);
-            if(result)
-                outStream<<std::format("[ graphicsBase ] ERROR\nFailed to submit the command buffer!\nError code: {}\n",int32_t(result));
+        result_t SubmitCommandBuffer_Compute(VkSubmitInfo &submitInfo, VkFence fence = VK_NULL_HANDLE) const {
+            submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+            VkResult result = vkQueueSubmit(queue_compute, 1, &submitInfo, fence);
+            if (result)
+                outStream
+                        << std::format("[ graphicsBase ] ERROR\nFailed to submit the command buffer!\nError code: {}\n",
+                                       int32_t(result));
             return result;
         }
-        result_t SubmitCommandBuffer_Compute(VkCommandBuffer commandBuffer,VkFence fence=VK_NULL_HANDLE)cosnt
+
+        result_t SubmitCommandBuffer_Compute(VkCommandBuffer commandBuffer, VkFence fence = VK_NULL_HANDLE)
+
+        cosnt
         {
-            VkSubmitInfo submitInfo={
+            VkSubmitInfo submitInfo = {
                     .commandBufferCount=1,
                     .pCommandBuffers=&commandBuffer
             };
-            return SubmitCommandBuffer_Compute(submitInfo,fence);
+            return SubmitCommandBuffer_Compute(submitInfo, fence);
         }
 
-        result_t PresentImage(VkPresentInfoKHR& presentInfo)
-        {
-            presentInfo.sType=VK_STRUCTURE_TYPE_INFO_KHR;
-            switch(VkResult result=PFN_vkQueuePresentKHR(queue_presentation,&presentInfo))
-            {
+        result_t PresentImage(VkPresentInfoKHR &presentInfo) {
+            presentInfo.sType = VK_STRUCTURE_TYPE_INFO_KHR;
+            switch (VkResult result = PFN_vkQueuePresentKHR(queue_presentation, &presentInfo)) {
                 case VK_SUCCESS:
                     return VK_SUCCESS;
                 case VK_SUBOPTIMAL_KHR:
                 case VK_ERROR_OUT_OF_DATA_KHT:
                     return RecreateSwapchain();
                 default:
-                    outStream << std::format("[ graphicsBase ] ERROR\nFailed to queue the image for presentation!\nError code: {}\n", int32_t(result));
+                    outStream << std::format(
+                            "[ graphicsBase ] ERROR\nFailed to queue the image for presentation!\nError code: {}\n",
+                            int32_t(result));
                     return result;
             }
         }
 
-        result_t PresentImage(VkSeamaphore semaphore_renderingIsOver=VK_NULL_HANDLE)
-        {
-            VkPresentInfoKHR presentInfo={
-              .swapchainCount=1,
-              .pSwapchains=&swapchain,
-              .pImageIndices=&currentImageIndex
+        result_t PresentImage(VkSeamaphore semaphore_renderingIsOver = VK_NULL_HANDLE) {
+            VkPresentInfoKHR presentInfo = {
+                    .swapchainCount=1,
+                    .pSwapchains=&swapchain,
+                    .pImageIndices=&currentImageIndex
             };
-            if(semaphore_renderingIsOver)
-            {
-                presentInfo.waitSemaphoreCount=1;
-                presentInfo.pWaitSemaphores=&semaphore_renderingIsOver;
+            if (semaphore_renderingIsOver) {
+                presentInfo.waitSemaphoreCount = 1;
+                presentInfo.pWaitSemaphores = &semaphore_renderingIsOver;
             }
             return PresentImage(presentInfo);
         }
