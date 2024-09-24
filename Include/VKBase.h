@@ -23,75 +23,6 @@ namespace vulkan {
 
     constexpr VkExtent2D defaultWindowSize = {1280, 720};
 
-    class fence {
-        VkFence handle = VK_NULL_HANDLE;
-    public:
-        fence(VkFenceCreateInfo &createInfo) {
-            Creaate(createInfo);
-        }
-
-        fence(VkFenceCreateFlags flags = 0) {
-            Create(flags);
-        }
-
-        fence(fence &&other) noexcept {
-            MoveHandle;
-        }
-
-        ~fence() {
-            DestroyHandleBy(vkDestroyFence);
-        }
-
-        DefineHandleTypeOperator;
-
-        DefineAddressFunction;
-
-        result_t Wait() const {
-            VkResult result = vkWaitForFences(graphicsBase::Base().Device(), 1, &handle, true, UINT64_MAX);
-            if (result)
-                outStream << std::format("[ fence ] ERROR\nFailed to wait for the fence!\nError code: {}\n",
-                                         int32_t(result));
-            return result;
-        }
-
-        result_t Reset() const {
-            VkResult result = vkResetFences(graphicsBase::Base().Device(), 1, &handle);
-            if (result)
-                outStream << std::format("[ fence ] ERROR\nFailed to reset the fence!\nError code: {}\n",
-                                         int32_t(result));
-            return result;
-        }
-
-        result_t WaitAndReset() const {
-            VkResult result = Wait();
-            result || (result = Reset());
-            return result;
-        }
-
-        result_t WaitAndReset() const {
-            VkResult result = Wait();
-            result || (result = Reset());
-            return result;
-        }
-
-        result_t Status() const {
-            VkResult result = vkGetFenceStatus(graphicsBase::Base().Device(), handle);
-            if (result < 0)
-                outStream << std::format("[ fence ] ERROR\nFailed to get the status of the fence!\nError code: {}\n",
-                                         int32_t(result));
-            return result;
-        }
-
-        result_t Create(VkFenceCreateInfo& createInfo)
-        {
-            createInfo.sType=VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-
-        }
-
-
-    };
-
-
     class graphicsBase {
         static graphicsBase singleton;
 
@@ -598,7 +529,7 @@ namespace vulkan {
             return uint32_t(availablePhysicalDevices.size());
         }
 
-        VkDevice Divice() const {
+        VkDevice Device() const {
             return device;
         }
 
@@ -656,7 +587,8 @@ namespace vulkan {
         }
 
         VkResult
-        DeterminePhysicalDevice(uint32_t deviceIndex = 0, bool enableGraphicsQueue, bool enableComputeQueue = true) {
+        DeterminePhysicalDevice(uint32_t deviceIndex = 0, bool enableGraphicsQueue = true,
+                                bool enableComputeQueue = true) {
             //TODO
         }
 
@@ -950,6 +882,200 @@ namespace vulkan {
     };
 
     inline graphicsBase graphicsBase::singleton;
+
+    class fence {
+        VkFence handle = VK_NULL_HANDLE;
+    public:
+        fence(VkFenceCreateInfo &createInfo) {
+            Create(createInfo);
+        }
+
+        fence(VkFenceCreateFlags flags = 0) {
+            Create(flags);
+        }
+
+        fence(fence &&other) noexcept {
+            MoveHandle;
+        }
+
+        ~fence() {
+            DestroyHandleBy(vkDestroyFence);
+        }
+
+        DefineHandleTypeOperator;
+
+        DefineAddressFunction;
+
+        result_t Wait() const {
+            VkResult result = vkWaitForFences(graphicsBase::Base().Device(), 1, &handle, true, UINT64_MAX);
+            if (result)
+                outStream << std::format("[ fence ] ERROR\nFailed to wait for the fence!\nError code: {}\n",
+                                         int32_t(result));
+            return result;
+        }
+
+        result_t Reset() const {
+            VkResult result = vkResetFences(graphicsBase::Base().Device(), 1, &handle);
+            if (result)
+                outStream << std::format("[ fence ] ERROR\nFailed to reset the fence!\nError code: {}\n",
+                                         int32_t(result));
+            return result;
+        }
+
+        result_t WaitAndReset() const {
+            VkResult result = Wait();
+            result || (result = Reset());
+            return result;
+        }
+
+
+        result_t Status() const {
+            VkResult result = vkGetFenceStatus(graphicsBase::Base().Device(), handle);
+            if (result < 0)
+                outStream << std::format("[ fence ] ERROR\nFailed to get the status of the fence!\nError code: {}\n",
+                                         int32_t(result));
+            return result;
+        }
+
+        result_t Create(VkFenceCreateInfo &createInfo) {
+            createInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+            VkResult result = vkCreateFence(graphicsBase::Base().Device(), &createInfo, nullptr, &handle);
+            if (result)
+                outStream
+                        << std::format("[ fence ] ERROR\nFailed to create a fence!\nError code: {}\n", int32_t(result));
+            return result;
+        }
+
+        result_t Create(VkFenceCreateFlags flags = 0) {
+            VkFenceCreateInfo createInfo = {
+                    .flags=flags
+            };
+            return Create(createInfo);
+        }
+    };
+
+    class semaphore {
+        VkSemaphoren handle = VK_NULL_HANDLE;
+    public:
+        semaphore(VkSemaphoreCreateInfo &createInfo) {
+            Create(createInfo);
+        }
+
+        semaphore() {
+            Create();
+        }
+
+        semaphore(semaphore &&other) noexcept {
+            MoveHandle;
+        }
+
+        ~semaphore() {
+            DestroyHandleBy(vkDestroySemaphore);
+        }
+
+        DefineHandleTypeOperator;
+        DefineAdddressFunction;
+
+        result_t Create(VkSemaphoreCreateInfo &createInfo) {
+            createInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+            VkResult result = vkCreateSemaphore(graphicsBase::Base().Device(), &createInfo, nullptr, &handle);
+            if (result)
+                outStream << std::format("[ semaphore ] ERROR\nFailed to create a semaphore!\nError code: {}\n",
+                                         int32_t(result));
+            return result;
+        }
+
+        result_t Create() {
+            VkSemaphoreCreateInfo createInfo = {};
+            return Create(createInfo);
+        }
+    };
+
+    class event {
+        VkEvent handle = VK_NULL_HANDLE;
+    public:
+        event(VkEventCreateInfo &createInfo) {
+            Create(createInfo);
+        }
+
+        event(VkEventCreateFlags flags = 0) {
+            Create(flags);
+        }
+
+        event(event &&other) noexcept { MoveHandle; }
+
+        ~event() { DestroyHandleBy(vkDestroyEvent); }
+        DefineHandleTypeOperator;
+
+        DefineAddressFunction;
+
+        void CmdSet(VkCommadBuffer commandBuffer, VkPipelineStageFlags stage_from) const {
+            vkCmdSetEvent(commandBuffer, handle, stage_from);
+        }
+
+        void CmdReset(VkCommandBuffer commandBuffer, VkPipelineStageFlags stage_from) const {
+            vkCmdResetEvent(commandBuffer, handle, stage_from);
+        }
+
+        void CmdWait(VkCommandBuffer commandBuffer, VkPipelineStageFlags stage_from, VkPipelineSategFlags stage_to,
+                     arrayRef<VkMemoryBarrier> memoryBarriers, arrayRef<VkBufferMemoryBarrier> bufferMemoryBarriers,
+                     arrayRef<VkImageMemoryBarrier> imageMemoryBarriers) const {
+            for (auto &i: memoryBarriers) {
+                i.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+            }
+            for (auto &i: bufferMemoryBarriers) {
+                i.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+            }
+            for (auto &i: imageMemoryBarriers) {
+                i.sType = VKK_STRUCTURE_TYPE_IAMEG_MEMORY_BARRIER;
+            }
+            vkCmdWaitEvents(commandBuffer, 1, &handle, stage_from, stage_to, memoryBarriers.Count(),
+                            memoryBarriers.Pointer(), imageMemorBarriers.Count(), imageMemoryBarriers.POinter());
+        }
+
+        result_t Set() const {
+            VkResult result = vkSetEvent(graphicsBase::Base().Device(), handle);
+            if (result)
+                outStream << std::format("[ event ] ERROR\nFailed to singal the event!\nError code: {}\n",
+                                         int32_t(result));
+            return result;
+        }
+
+        result_t Reset() const {
+            VkResult result = vkRestEvent(graphicsBase::Base().Device, hanle);
+            if (result)
+                outStream << std::format("[ event ] ERROR\nFailed to unsingal the event!\nError code:{}\n",
+                                         int32_t(result));
+            return result;
+        }
+
+        result_t Status() const {
+            VkResult result = vkGetEventStatus(graphicsBase::Base().Device(), handle);
+            if (result < 0)
+                outStream << std::format("[ event ] ERROR\nFailed to get the status of the event!\nError code{}\n",
+                                         int32_t(result));
+            return result;
+        }
+
+        result_t Create(VkEventCreateInfo &createInfo) {
+            createInfo.sType = VK_STRUCTURE_TYPE_EVENT_CREATE_INFO;
+            VkResult result = vkCreateEvent(graphicsBase::Base().Device(), &createInfo, nullptr, &handle);
+            if (result)
+                outStream
+                        << std::format("[ event ] ERROR\nFailed to create a event!\nError code: {}\n", int32_t(result));
+            return result;
+        }
+
+        result_t Create(VkEventCreateFlags flags = 0) {
+            VkEventCreateInfo createInfo = {
+                    .flags=flags
+            };
+            return Create(createInfo);
+        }
+
+    };
+
+
 };
 
 #endif //VKBASE_H

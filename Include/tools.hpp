@@ -12,7 +12,7 @@ namespace vulkan {
 #define ExecuteOnce(...) { static bool executed = false; if (executed) return __VA_ARGS__; executed = true; }
     inline auto &outStream = std::cout;
 
-    using semaphore=VkSemaphore;
+
     using commandBuffer=VkCommandBuffer;
     using commandPool=VkCommandPool;
     using renderPass=VkRenderPass;
