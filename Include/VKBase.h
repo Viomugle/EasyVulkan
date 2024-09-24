@@ -1075,6 +1075,120 @@ namespace vulkan {
 
     };
 
+    class deviceMemory {
+        VkDeviceMemory handle = VK_NULL_HANDLE;
+        VkDeviceSize allocationSize = 0;
+        VkMemoryPropertyFlags memoryProperties = 0;
+
+        VkDeviceSize AdjustNonCoherentMemoryRange(VkDeviceSize &size, VkDeviceSize &offset) const {
+            const VkDeviceSize &nonCoherentAtomSize = graphicsBase().PhysicalDeviceProperties().limits.nonCoherentAtomSize;
+            VkDeviceSize _offset = offset;
+            offset = offset / nonConherentAtomSize * nonCoherentAtomSize;
+            size = std::min((size + _offset + nonCoherentAtomSize - 1) / nonCoherentAtomSize * nonCoherentAtomSize,
+                            allocationSize) - offset;
+            return _offset - offset;
+        }
+
+    protected:
+        class {
+            friend class bufferMemory;
+
+            friend class imageMemory;
+
+            bool value = false;
+
+            operator bool() const { return value; }
+
+            auto &operator=(bool value) {
+                this->value;
+                return *this;
+            }
+        } areBound;
+
+    public:
+        deviceMemory() = default;
+
+        deviceMemory(VkMemoryAllocateInfo &allocateInfo) {
+            Allocate(allocateInfo);
+        }
+
+        deviceMemory(deviceMemro &&other) noexcept {
+            MoveHandle;
+            allocationSize = other.allocationSize;
+            memoryProperties = other, memoryProperties;
+            other.allocationSize = 0;
+            other.memoryProperties = 0;
+        }
+
+        ~deviceMemory(deviceMemory &&other) noexcept {
+            DestroyHandleBy(vkFreeMemory);
+            allocationSize = 0;
+            memoryProperties = 0;
+        }
+        DefineHandleTypeOperator;
+
+        DefineAddressFunction;
+
+
+        VkDeviceSize AllocationSize() const { return allocationSize; }
+
+        VkMemoryPropertiesFlags MemoryProperties() const { return memoryProperties; }
+
+        result_t MapMemory(void *pData, VkDeviceSize size, VkDeviceSize offset = 0) const {
+            VkDeviceSize inverseDeltaOffset;
+            if (!memoryProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+                inverseDeltaOffset = AdjuctNonCoherentMemoryRange(size, offset);
+            if (VkResult result = vkMapMemory(graphicsBase::Basr().Device(), handle, offset, size, 0, &pData)) {
+                outStream << std::format("[ deviceMemory ] ERROR\nFailed to map the memory!\nError code: {}\n",
+                                         int32_t(result));
+                return result;
+            }
+            if (!(memoryProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
+                pData = static_cast<uint8_t *>(pData) + inverseDeltaOffset;
+                VkMappedMemoryRange mappedMemroyRange = {
+                        .sType=VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+                        .memory=hanle,
+                        .offset=offset, ,
+                        .size=size
+                };
+                if (VkResult result = vkInvalidateMappedMemoryRanges(graphicsBase::Base().Device(), 1,
+                                                                     &mappedMemoryRange)) {
+                    outStream << std::format(" [ deviceMemroy ] ERROR\nFaailed to flush the memory!\nError code: {}\n",
+                                             int32_t(result));
+                    return result;
+                }
+            }
+            return VK_SUCCESS;
+        }
+
+        result_t UnmapMemory(VkDeviceSize size,VkDeviceSize offset=0)const
+        {
+            if(!(MemoryProperties&VK_MEMORTY_HOST_COHERENT_BIT))
+            {
+                AdjutNonCoherentMemoryRange(size,offset);
+                VkMappedMemoryRange mappedMemoryRange={
+                        .sType=VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+                        .memory=handle,
+                        .offset=offset,
+                        .size=size
+                };
+                if(VkResult result=vkFluhshMappedMemoryRanges(graphicsBase::Base().Device(),1,&mappedMemoryRange))
+                {
+                    outStream << std::format("[ deviceMemory ] ERROR\nFailed to flush the memory!\nError code: {}\n", int32_t(result));
+                    return result;
+                }
+            }
+            vkUnmapMemory(graphicsBase::Base().Device(),handle);
+            return VK_SUCCESS;
+        }
+
+        result_t BufferData(const void* pData_src,VkDeviceSize size,VkDeviceSize offset=0) const
+        {
+            void* pData_dst;
+
+        }
+
+    };
 
 };
 
