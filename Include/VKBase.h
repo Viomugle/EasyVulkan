@@ -205,10 +205,7 @@ namespace vulkan {
             return result;
         }
 
-        result_t SubmitCommandBuffer_Compute(VkCommandBuffer commandBuffer, VkFence fence = VK_NULL_HANDLE)
-
-        cosnt
-        {
+        result_t SubmitCommandBuffer_Compute(VkCommandBuffer commandBuffer, VkFence fence = VK_NULL_HANDLE) const {
             VkSubmitInfo submitInfo = {
                     .commandBufferCount=1,
                     .pCommandBuffers=&commandBuffer
@@ -955,7 +952,7 @@ namespace vulkan {
     };
 
     class semaphore {
-        VkSemaphoren handle = VK_NULL_HANDLE;
+        VkSemaphore handle = VK_NULL_HANDLE;
     public:
         semaphore(VkSemaphoreCreateInfo &createInfo) {
             Create(createInfo);
@@ -974,7 +971,8 @@ namespace vulkan {
         }
 
         DefineHandleTypeOperator;
-        DefineAdddressFunction;
+
+        DefineAddressFunction;
 
         result_t Create(VkSemaphoreCreateInfo &createInfo) {
             createInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -1009,7 +1007,7 @@ namespace vulkan {
 
         DefineAddressFunction;
 
-        void CmdSet(VkCommadBuffer commandBuffer, VkPipelineStageFlags stage_from) const {
+        void CmdSet(VkCommandBuffer commandBuffer, VkPipelineStageFlags stage_from) const {
             vkCmdSetEvent(commandBuffer, handle, stage_from);
         }
 
@@ -1027,7 +1025,7 @@ namespace vulkan {
                 i.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
             }
             for (auto &i: imageMemoryBarriers) {
-                i.sType = VKK_STRUCTURE_TYPE_IAMEG_MEMORY_BARRIER;
+                i.sType = VK_STRUCTURE_TYPE_IMAEG_MEMORY_BARRIER;
             }
             vkCmdWaitEvents(commandBuffer, 1, &handle, stage_from, stage_to, memoryBarriers.Count(),
                             memoryBarriers.Pointer(), imageMemorBarriers.Count(), imageMemoryBarriers.POinter());
@@ -1042,7 +1040,7 @@ namespace vulkan {
         }
 
         result_t Reset() const {
-            VkResult result = vkRestEvent(graphicsBase::Base().Device, hanle);
+            VkResult result = vkRestEvent(graphicsBase::Base().Device(), hanle);
             if (result)
                 outStream << std::format("[ event ] ERROR\nFailed to unsingal the event!\nError code:{}\n",
                                          int32_t(result));
@@ -1081,7 +1079,7 @@ namespace vulkan {
         VkMemoryPropertyFlags memoryProperties = 0;
 
         VkDeviceSize AdjustNonCoherentMemoryRange(VkDeviceSize &size, VkDeviceSize &offset) const {
-            const VkDeviceSize &nonCoherentAtomSize = graphicsBase().PhysicalDeviceProperties().limits.nonCoherentAtomSize;
+            const VkDeviceSize &nonCoherentAtomSize = graphicsBase::Base().PhysicalDeviceProperties().limits.nonCoherentAtomSize;
             VkDeviceSize _offset = offset;
             offset = offset / nonConherentAtomSize * nonCoherentAtomSize;
             size = std::min((size + _offset + nonCoherentAtomSize - 1) / nonCoherentAtomSize * nonCoherentAtomSize,
@@ -1108,19 +1106,21 @@ namespace vulkan {
     public:
         deviceMemory() = default;
 
-        deviceMemory(VkMemoryAllocateInfo &allocateInfo) {
+        deviceMemory(VkMemoryAllocateInfo
+                     &allocateInfo) {
             Allocate(allocateInfo);
         }
 
-        deviceMemory(deviceMemro &&other) noexcept {
+        deviceMemory(deviceMemory
+                     &&other) noexcept {
             MoveHandle;
             allocationSize = other.allocationSize;
-            memoryProperties = other, memoryProperties;
+            memoryProperties = other.memoryProperties;
             other.allocationSize = 0;
             other.memoryProperties = 0;
         }
 
-        ~deviceMemory(deviceMemory &&other) noexcept {
+        ~deviceMemory() {
             DestroyHandleBy(vkFreeMemory);
             allocationSize = 0;
             memoryProperties = 0;
@@ -1132,13 +1132,13 @@ namespace vulkan {
 
         VkDeviceSize AllocationSize() const { return allocationSize; }
 
-        VkMemoryPropertiesFlags MemoryProperties() const { return memoryProperties; }
+        VkMemoryPropertyFlags MemoryProperties() const { return memoryProperties; }
 
         result_t MapMemory(void *pData, VkDeviceSize size, VkDeviceSize offset = 0) const {
             VkDeviceSize inverseDeltaOffset;
             if (!memoryProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
-                inverseDeltaOffset = AdjuctNonCoherentMemoryRange(size, offset);
-            if (VkResult result = vkMapMemory(graphicsBase::Basr().Device(), handle, offset, size, 0, &pData)) {
+                inverseDeltaOffset = AdjustNonCoherentMemoryRange(size, offset);
+            if (VkResult result = vkMapMemory(graphicsBase::Base().Device(), handle, offset, size, 0, &pData)) {
                 outStream << std::format("[ deviceMemory ] ERROR\nFailed to map the memory!\nError code: {}\n",
                                          int32_t(result));
                 return result;
@@ -1147,8 +1147,8 @@ namespace vulkan {
                 pData = static_cast<uint8_t *>(pData) + inverseDeltaOffset;
                 VkMappedMemoryRange mappedMemroyRange = {
                         .sType=VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
-                        .memory=hanle,
-                        .offset=offset, ,
+                        .memory=handle,
+                        .offset=offset,
                         .size=size
                 };
                 if (VkResult result = vkInvalidateMappedMemoryRanges(graphicsBase::Base().Device(), 1,
@@ -1161,34 +1161,391 @@ namespace vulkan {
             return VK_SUCCESS;
         }
 
-        result_t UnmapMemory(VkDeviceSize size,VkDeviceSize offset=0)const
-        {
-            if(!(MemoryProperties&VK_MEMORTY_HOST_COHERENT_BIT))
-            {
-                AdjutNonCoherentMemoryRange(size,offset);
-                VkMappedMemoryRange mappedMemoryRange={
+        result_t UnmapMemory(VkDeviceSize size, VkDeviceSize offset = 0) const {
+            if (!(memoryProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
+                AdjustNonCoherentMemoryRange(size, offset);
+                VkMappedMemoryRange mappedMemoryRange = {
                         .sType=VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
                         .memory=handle,
                         .offset=offset,
                         .size=size
                 };
-                if(VkResult result=vkFluhshMappedMemoryRanges(graphicsBase::Base().Device(),1,&mappedMemoryRange))
-                {
-                    outStream << std::format("[ deviceMemory ] ERROR\nFailed to flush the memory!\nError code: {}\n", int32_t(result));
+                if (VkResult result = vkFlushMappedMemoryRanges(graphicsBase::Base().Device(), 1,
+                                                                &mappedMemoryRange)) {
+                    outStream << std::format("[ deviceMemory ] ERROR\nFailed to flush the memory!\nError code: {}\n",
+                                             int32_t(result));
                     return result;
                 }
             }
-            vkUnmapMemory(graphicsBase::Base().Device(),handle);
+            vkUnmapMemory(graphicsBase::Base().Device(), handle);
             return VK_SUCCESS;
         }
 
-        result_t BufferData(const void* pData_src,VkDeviceSize size,VkDeviceSize offset=0) const
-        {
-            void* pData_dst;
+        result_t BufferData(const void *pData_src, VkDeviceSize size, VkDeviceSize offset = 0) const {
+            void *pData_dst;
+            if (VkResult result = MapMemory(pData_dst, size, offset))
+                return result;
+            memcpy(pData_dst, pData_src, size_t(size));
+            return UnmapMemory(size, offset);
+        }
 
+        result_t BuferData(const auto &data_src) const {
+            return Buffer(&data_src, sizepf(data_src));
+        }
+
+        result_t RetrieveData(void *pData_dst, VkDeviceSize size, VkDeviceSize offset = 0) const {
+            void *pData_src;
+            if (VkResult result = MapMemory(pData_src, size, offset))
+                return result;
+            memcpy(pData_dst, pData_src, size_t(size));
+            return UnmapMemory(size, offset);
+        }
+
+        result_t Allocate(VkMemoryAllocateInfo &allocateInfo) {
+            if (allocateInfo.memoryTypeIndex >= graphicsBase::Base().PhysicalDeviceMemoryProperties().memoryTypeCount) {
+                outStream << std::format("[ deviceMemory ] ERROR\nInvalid memory type index!\n");
+                return VK_RESULT_MAX_ENUM; //没有合适的错误代码，别用VK_ERROR_UNKNOWN
+            }
+            allocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+            if (VkResult result = vkAllocateMemory(graphicsBase::Base().Device(), &allocateInfo, nullptr, &handle)) {
+                outStream << std::format("[ deviceMemory ] ERROR\nFailed to allocate memory!\nError code: {}\n",
+                                         int32_t(result));
+                return result;
+            }
+            allocationSize = allocateInfo.allocationSize;
+            memoryProperties = graphicsBase::Base().PhysicalDeviceMemoryProperties().memoryTypes[allocateInfo.memoryTypeIndex].propertyFlags;
+            return VK_SUCCESS;
+        };
+    };
+
+    class buffer {
+        VkBuffer handle = VK_NULL_HANDLE;
+    public:
+        buffer() = default;
+
+        buffer(VkBufferCreateInfo createInfo) {
+            Create(createInfo);
+        }
+
+        buffer(buffer &&other) noexcept { MoveHandle; }
+
+        ~buffer() { DestroyHandleBy(vkDestroyBuffer); }
+        DefineHandleTypeOperator;
+
+        DefineAddressFunction;
+
+        VkMemoryAllocateInfo MemoryAllocateInfo(VkMemoryPropertyFlags desiredMemoryProperties) const {
+            VkMemoryAllocateInfo memoryAllocateInfo = {
+                    .sType=VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO
+            };
+            VkMemoryRequirements memoryRequirements;
+            vkGetBufferMemoryRequirements(graphicsBase::Base().Device(), handle, &memoryRequirements);
+            memoryAllocateInfo.allocationSize = memoryRequirements.size;
+            memoryAllocateInfo.memoryTypeIndex = UINT32_MAX;
+            auto &physicalDeviceMemoryProperties = graphicsBase::Base().PhysicalDeviceMemoryProperties();
+            for (size_t i = 0; i < physicalDeviceMemoryProperties.memoryTypeCount; i++) {
+                if (memoryRequirements.memoryTypeBits & 1 << i &&
+                    (physicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & desiredMemoryProperties) ==
+                    desiredMemoryProperties) {
+                    memoryAllocateInfo.memoryTypeIndex = i;
+                    break;
+                }
+            }
+            return memoryAllocateInfo;
+        }
+
+        result_t BindMemory(VkDeviceMemory deviceMemory, VkDeviceSize memoryOffset = 0) const {
+            VkResult result = vkBindBufferMemory(graphicsBase::Base().Device(), handle, deviceMemory, memoryOffset);
+            if (result)
+                outStream << std::format("[ buffer ] ERROR\nFailed to bind memory to the buffer!\nError code: {}\n",
+                                         int32_t(result));
+            return result;
+        }
+
+        result_t Create(VkBufferCreateInfo &createInfo) {
+            createInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+            VkResult result = vkCreateBuffer(graphicsBase::Base().Device(), &createInfo, nullptr, &handle);
+            if (result)
+                outStream << std::format("[ buffer ] ERROR\nFailed to create a buffer!\nError code: {}\n",
+                                         int32_t(result));
+            return result;
         }
 
     };
+
+    class bufferMemory : buffer, deviceMemory {
+    public:
+        bufferMemory() = default;
+
+        bufferMemory(VkBufferCreateInfo &createInfo, VkMemoryPropertyFlags desiredMemoryProperties) {
+            Create(createInfo, desiredMemoryProperties);
+        }
+
+        bufferMemory(bufferMemory &&other) noexcept:
+                buffer(std::move(other)), deviceMemory(std::move(other)) {
+            areBound = other.areBound;
+            other.areBound = false;
+        }
+
+        ~bufferMemory() {
+            areBound = false;
+        }
+
+        VkBuffer Buffer() const {
+            return static_cast<const buffer &>(*this);
+        }
+
+        const VkDeviceMemory *AddressOfMemory() const { return deviceMemory::Address(); }
+
+        bool AreBound() const { return areBound; }
+
+        using deviceMemory::AllocationSize;
+        using deviceMemory::MemoryProperties;
+        using deviceMemory::MapMemory;
+        using deviceMemory::BufferData;
+        using deviceMemory::RetrieveData;
+
+        result_t CreateBuffer(VkBufferCreateInfo &createInfo) {
+            return buffer::Create(createInfo);
+        }
+
+        result_t AllocateMemory(VkMemoryPropertyFlags desiredMemoryProperties) {
+            VkMemoryAllocateInfo allocateInfo = MemoryAllocateInfo(desiredMemoryProperties);
+            if (allocateInfo.memoryTypeIndex >= graphicsBase::Base().PhysicalDeviceMemoryProperties().memoryTypeCount)
+                return VK_RESULT_MAX_ENUM;
+            return Allocate(allocateInfo);
+        }
+
+        result_t BindMemory() {
+            if (VkResult result = buffer::BindMemory(Memory()))
+                return result;
+            areBound = true;
+            return VK_SUCCESS;
+        }
+
+        result_t Create(VkBufferCreateInfo &createInfo, VkMemoryPropertyFlags desiredMemoryProperties) {
+            VkResult result;
+            false || //这行用来应对Visual Studio中代码的对齐
+            (result = CreateBuffer(createInfo)) || //用||短路执行
+            (result = AllocateMemory(desiredMemoryProperties)) ||
+            (result = BindMemory());
+            return result;
+        }
+
+    };
+
+    class bufferView {
+        VkBufferView handle = VK_NULL_HANDLE;
+    public:
+        bufferView() = default;
+
+        bufferView(VkBufferViewCreateInfo &createInfo) {
+            Create(createInfo);
+        }
+
+        bufferView(VkBuffer buffer, VkFormat format, VkDeviceSize offset = 0, VkDeviceSize range = 0) {
+            Create(buffer, format, offset, range);
+        }
+
+        bufferView(bufferView &&other) noexcept { MoveHandle; }
+
+        ~bufferView() { DestroyHandleBy(vkDestroyBufferView); }
+
+        DefineHandleTypeOperator;
+
+        DefineAddressFunction;
+
+        result_t Create(VkBufferViewCreateInfo &createInfo) {
+            createInfo.sType = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO;
+            VkResult result = vkCreateBufferView(graphicsBase::Base().Device(), &createInfo, nullptr, &handle);
+            if (result)
+                outStream << std::format("[ bufferView ] ERROR\nFailed to create a buffer view!\nError code: {}\n",
+                                         int32_t(result));
+            return result;
+        }
+
+        result_t Create(VkBuffer buffer, VkFormat format, VkDeviceSize offset = 0, VkDeviceSize range = 0) {
+            VkBufferViewCreateInfo createInfo = {
+                    .buffer=buffer,
+                    .format=format,
+                    .offset=offset,
+                    .range=range
+            };
+            return Create(createInfo);
+        }
+
+    };
+
+    class image {
+        VkImage handle = VK_NULL_HANDLE;
+    public:
+        image() = default;
+
+        image(VkImageCreateInfo &createInfo) {
+            Create(createInfo);
+        }
+
+        image(image &&other) noexcept { MoveHandle; }
+
+        ~image() { DestroyHandleBy(vkDestroyImage); }
+
+        DefineHandleTypeOperator;
+
+        DefineAddressFunction;
+
+        VkMemoryAllocateInfo MemoryAllocateInfo(VkMemoryPropertyFlags desiredMemoryProperties) const {
+            VkMemoryAllocateInfo memoryAllocateInfo = {
+                    .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO
+            };
+            VkMemoryRequirements memoryRequirements;
+            vkGetImageMemoryRequirements(graphicsBase::Base().Device(), handle, &memoryRequirements);
+            memoryAllocateInfo.allocationSize = memoryRequirements.size;
+            auto GetMemoryTypeIndex = [](uint32_t memoryTypeBits,
+                                         VkMemoryPropertyFlags desiredMemoryProperties) -> unsigned long long {
+                auto &physicalDeviceMemoryProperties = graphicsBase::Base().PhysicalDeviceMemoryProperties();
+                for (size_t i = 0; i < physicalDeviceMemoryProperties.memoryTypeCount; i++)
+                    if (memoryTypeBits & 1 << i &&
+                        (physicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & desiredMemoryProperties) ==
+                        desiredMemoryProperties)
+                        return i;
+                return UINT32_MAX;
+            };
+            memoryAllocateInfo.memoryTypeIndex = GetMemoryTypeIndex(memoryRequirements.memoryTypeBits,
+                                                                    desiredMemoryProperties);
+            if (memoryAllocateInfo.memoryTypeIndex == UINT32_MAX &&
+                desiredMemoryProperties & VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT)
+                memoryAllocateInfo.memoryTypeIndex = GetMemoryTypeIndex(memoryRequirements.memoryTypeBits,
+                                                                        desiredMemoryProperties &
+                                                                        ~VK_MEMORY_PRPERTY_LAZILY_ALLOCATED_BIT);
+            return memoryAllocateInfo;
+        }
+
+        result_t BindMemory(VkDeviceMemory deviceMemory, VkDeviceSize memoryOffset = 0) const {
+            VkResult result = vkBindImageMemory(graphicsBase::Base().Device(), handle, deviceMemroy, memoryOffset);
+            if (result)
+                outStream << std::format("[ image ] ERROR\nFailed to bind memory to the image!\nError code: {}\n",
+                                         int32_t(result));
+            return result;
+        }
+
+        result_t Create(VkImageCreateInfo &createInfo) {
+            createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+            VkResult result = vkCreateImage(graphicsBase::Base().Device(), &createInfo, nullptr, &handle);
+            if (result)
+                outStream << std::format("[ image ] ERROR\nFailed to create an image!\nError code: {}\n",
+                                         int32_t(result));
+            return result;
+        }
+    };
+
+    class imageMemory : image, deviceMemory {
+    public:
+        imageMemory() = default;
+
+        imageMemory(VkImageCreateInfo &createInfo, VkMemoryPropertyFlags desiredMemoryProperties) {
+            Create(createInfo, desiredMemoryProperties);
+        }
+
+        imageMemory(imageMemory &&other) noexcept: image(std::move(other)), deviceMemory(std::move(other)) {
+            areBound = other.areBound;
+            other.areBound = false;
+        }
+
+        ~imageMemory() { areBound = false; }
+
+        VkImage Image() const { return static_cast<const image &>(*this); }
+
+        const VkImage *AddressOfImage() const { return image::Address(); }
+
+        VkDeviceMemory Memory() const { return static_cast<const deviceMemory &>(*this); }
+
+        const VkDeviceMemory *AddressOfMemory() const { return deviceMemroy::Address(); }
+
+        bool AreBound() const { return areBound; }
+
+        using deviceMemory::AllocationSize;
+        using deviceMemory::MemoryProperties;
+
+        result_t CreateImage(VkImageCreateInfo &createInfo) {
+            return image::Create(createInfo);
+        }
+
+        result_t AllocateMemory(VkMemoryPropertyFlags desireMemoryProperties) {
+            VkMemoryAllocateInfo allocateInfo = MemoryAllocateInfo(desiredMemoryProperties);
+            if (allocateInfo.memoryTypeIndex >= graphicsBase::Base().PhysicalDeviceMemoryProperties().memoryTypeCount)
+                return VK_RESULT_MAX_ENUM;
+            return Allocate(allocateInfo);
+        }
+
+        result_t BindMemory() {
+            if (VkResult result = image::BindMemory(Memory()))
+                return result;
+            areBound = true;
+            return VK_SUCCESS;
+        }
+
+        result_t Create(VkImageCreateInfo &createInfo, VkMemoryPropertyFlags desiredMemoryProperties) {
+            VkResult result;
+            false ||
+            (result = CreateImage(createInfo)) ||
+            (result = AllocateMemory(desiredMemoryProperties)) ||
+            (result = BindMemory());
+            return result;
+        }
+    };
+
+    class imageView {
+        VkImageView handle = VK_NULL_HANDLE;
+    public:
+        imageView() = default;
+
+        imageView(VkImageViewCreateInfo &createInfo) {
+            Create(createInfo);
+        }
+
+        imageView(VkImage image, VkImageViewType viewType, VkFormat format,
+                  const VkImageSubresourceRange &subsourceRange, VkImageCreateFlags flags = 0) {
+            Create(image, viewType, format, subsourceRange, flags);
+        }
+
+        imageView(imageView &&other) noexcept {
+            MoveHandle;
+        }
+
+        ~imageView() {
+            DestroyHandleBy(vkDestroyImageView);
+        }
+
+        DefineHandleTypeOperator;
+
+        DefineAddressFunction;
+
+        result_t Create(VkImageViewCreateInfo &createInfo) {
+            createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+            VkResult result = vkCreateImageView(graphicsBase::Base().Device(), &createInfo, nullptr, &handle);
+            if (result)
+                outStream << std::format("[ imageView ] ERROR\nFailed to create an image view!\nError code: {}\n",
+                                         int32_t(result));
+            return result;
+        }
+
+        result_t Create(VkImage image, VkImageViewType viewType, VkFormat format,
+                        const VkImageSubresourceRange &subresourceRange, VkImageViewCreateFlags flags = 0) {
+            VkImageViewCreateInfo createInfo = {
+                    .flags=flags,
+                    .image=image,
+                    .viewType=viewType,
+                    .format=format,
+                    .subresourceRange=subresourceRange
+            };
+            return Create(createInfo);
+        }
+
+
+
+
+    };
+
 
 };
 

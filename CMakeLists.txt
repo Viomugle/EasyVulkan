@@ -11,6 +11,7 @@ add_executable(MyVulkan src/main.cpp
         Include/EasyVulkanStart.h
         Include/GlfwGeneral.hpp
         Include/tools.hpp
-        Include/EasyVulkan.hpp)
+        Include/EasyVulkan.hpp
+        Include/VkFormat.h)
 target_link_libraries(MyVulkan PUBLIC glfw3)
 target_link_libraries(MyVulkan PUBLIC vulkan-1)
