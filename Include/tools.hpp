@@ -12,15 +12,6 @@ namespace vulkan {
 #define ExecuteOnce(...) { static bool executed = false; if (executed) return __VA_ARGS__; executed = true; }
     inline auto &outStream = std::cout;
 
-
-    using commandBuffer=VkCommandBuffer;
-    using commandPool=VkCommandPool;
-    using renderPass=VkRenderPass;
-    using pipelineLayout=VkPipelineLayout;
-    using pipeline=VkPipeline;
-    using framebuffer=VkFramebuffer;
-    using shaderModule=VkShaderModule;
-
     constexpr struct outStream_t {
         static std::stringstream ss;
 
@@ -36,9 +27,9 @@ namespace vulkan {
             ss << string;
             return {};
         }
-    }outStream;
-    inline std::stringstream outStream_t::s;
+    } outStream;
 
+    inline std::stringstream outStream_t::ss;
 
 
 #ifndef VK_RESULT_THROW
@@ -112,7 +103,7 @@ namespace vulkan {
 
     };
 
-    result_t::callback_throw=[](VkResult result){
+    result_t::callback_throw = [](VkResult result) {
         MessageBoxA(hWindow, outStream.ss.str().c_str(), nullptr, MB_OK);
     };
 

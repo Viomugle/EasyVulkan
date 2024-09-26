@@ -1540,12 +1540,79 @@ namespace vulkan {
             };
             return Create(createInfo);
         }
+    };
 
 
+    class pipelineLayout {
+        VkPipelineLayout handle = VK_NULL_HANDLE;
+    public:
+        pipelineLayout() = default;
 
+        pipelineLayout(VkPipelineLayoutCreateInfo &createInfo) {
+            Create(createInfo);
+        }
+
+        pipelineLayout(pipelineLayout &&other) noexcept { MoveHandle; }
+
+        ~pipelineLayout() { DestroyHandleBy(vkDestroyPipelineLayout); }
+        DefineHandleTypeOperator;
+
+        DefineAddressFunction;
+
+        result_t Create(VkPipelineLayoutCreateInfo &createInfo) {
+            createInfo.sType = VK_STRUCTURE_TYPE_PIPEINE_LAYOUT_CREATE_INFO;
+            VkResult result = vkCreatePipelineLayout(graphicsBase::Base().Device(), &createInfo, nullptr, &handle);
+            if (result)
+                outStream << std::format(
+                        "[ pipelineLayout ] ERROR\nFailed to create a pipeline layout!\nError code: {}\n",
+                        int32_t(result));
+            return result;
+        }
 
     };
 
+    class pipeline {
+        VkPipeline handle = VK_NULL_HANDLE;
+    public:
+        pipeline() = default;
+
+        pipeline(VkGraphicsPipelineCreateInfo &createInfo) {
+            Create(createInfo);
+        }
+
+        pipeline(VkComputePipelineCreateInfo &createInfo) {
+            Create(createInfo);
+        }
+
+        pipeline(pipeline &&other) noexcept { MoveHandle; }
+
+        ~pipeline() { DestroyHandleBy(vkDestroyPipeline); }
+        DefineHandleTypeOperator;
+
+        DefineAddressFunction;
+
+        result_t Create(VkGraphicsPipelineCreateInfo &createInfo) {
+            createInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+            VkResult result = vkCreateGraphicsPipelines(graphicsBase::Base().Device(), VK_NULL_HANDLE, 1, &createInfo,
+                                                        nullptr, &handle);
+            if (result)
+                outStream << std::format("[ pipeline ] ERROR\nFailed to create a graphics pipeline!\n Error code: {}\n",
+                                         int32_t(result));
+            return result;
+        }
+
+        result_t Create(VkComputePipelineCreateInfo &createInfo) {
+            createInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+            VkResult result = vkCreateComputePipelines(graphicsBase::Base().Device(), V_NULL_HANDLE, 1, &createInfo,
+                                                       nullptr, &handle);
+            if (result) {
+                outStream << std::format("[ pipeline ] ERROR\nFailed to create a compute pipeline!\nError code:{}\n",
+                                         int32_t(result));
+            }
+            return result;
+        }
+
+    };
 
 };
 
